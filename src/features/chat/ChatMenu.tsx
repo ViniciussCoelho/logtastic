@@ -27,8 +27,8 @@ export function ChatMenu({ onSend }: ChatMenuProps) {
       {open && (
         <div
           role="dialog"
-          aria-label="Say something"
-          className="absolute bottom-full mb-4 w-[min(26rem,calc(100vw-2rem))] rounded-3xl border-4 border-ink bg-cream p-3 shadow-[0_6px_0_var(--color-ink)]"
+          aria-label="Quick messages"
+          className="absolute bottom-full left-1/2 mb-4 w-[min(26rem,calc(100vw-2rem))] -translate-x-1/2 rounded-3xl border-4 border-ink bg-cream p-3 shadow-[0_6px_0_var(--color-ink)]"
         >
           <div role="tablist" aria-label="Message categories" className="mb-3 grid grid-cols-3 gap-1.5">
             {CHAT_CATEGORIES.map((c) => (
@@ -62,8 +62,8 @@ export function ChatMenu({ onSend }: ChatMenuProps) {
           />
         </div>
       )}
-      <HudButton aria-label="Chat" aria-expanded={open} onClick={() => setOpen((v) => !v)} className="h-18 w-18">
-        <svg viewBox="0 0 48 48" className="h-10 w-10" aria-hidden="true">
+      <HudButton aria-label="Quick messages" aria-expanded={open} onClick={() => setOpen((v) => !v)} className="h-14 w-14">
+        <svg viewBox="0 0 48 48" className="h-8 w-8" aria-hidden="true">
           <path
             d="M8 10 h32 a6 6 0 0 1 6 6 v14 a6 6 0 0 1 -6 6 h-18 l-9 8 v-8 h-5 a6 6 0 0 1 -6 -6 v-14 a6 6 0 0 1 6 -6 z"
             fill="#fff"

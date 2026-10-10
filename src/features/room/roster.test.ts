@@ -4,23 +4,24 @@ import { applyRosterEvent } from './roster';
 
 const beaver = (id: string): RoomPlayer => ({
   id,
-  nickname: id,
+  nickname: `Beaver ${id}`,
   appearance: { fur: 'cream', face: 'dots', hat: 'none' },
   position: { x: 900, y: 600 },
 });
 
 describe('applyRosterEvent', () => {
-  it('counts everyone from the welcome, then follows joins and leaves', () => {
-    let ids = applyRosterEvent(new Set(), { type: 'welcome', selfId: 'a', players: [beaver('a'), beaver('b'), beaver('c')] });
-    expect(ids.size).toBe(3);
+  it('starts from the welcome, then follows joins and leaves', () => {
+    let roster = applyRosterEvent(new Map(), { type: 'welcome', selfId: 'a', players: [beaver('a'), beaver('b'), beaver('c')] });
+    expect(roster.size).toBe(3);
 
-    ids = applyRosterEvent(ids, { type: 'player_joined', player: beaver('d') });
-    ids = applyRosterEvent(ids, { type: 'player_left', playerId: 'b' });
-    expect([...ids].sort()).toEqual(['a', 'c', 'd']);
+    roster = applyRosterEvent(roster, { type: 'player_joined', player: beaver('d') });
+    roster = applyRosterEvent(roster, { type: 'player_left', playerId: 'b' });
+    expect([...roster.keys()].sort()).toEqual(['a', 'c', 'd']);
+    expect(roster.get('d')).toEqual({ nickname: 'Beaver d', appearance: { fur: 'cream', face: 'dots', hat: 'none' } });
   });
 
   it('ignores events that do not change who is here', () => {
-    const ids = new Set(['a']);
-    expect(applyRosterEvent(ids, { type: 'chat', playerId: 'a', messageId: 'reactions.cool' })).toBe(ids);
+    const roster = new Map([['a', { nickname: 'A', appearance: beaver('a').appearance }]]);
+    expect(applyRosterEvent(roster, { type: 'chat', playerId: 'a', messageId: 'reactions.cool' })).toBe(roster);
   });
 });

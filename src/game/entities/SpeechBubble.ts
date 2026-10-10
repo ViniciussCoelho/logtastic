@@ -17,7 +17,8 @@ export class SpeechBubble extends Phaser.GameObjects.Container {
         fontSize: '26px',
         color: '#2b1b13',
         align: 'center',
-        wordWrap: { width: 260 },
+        // Advanced wrap also breaks long unbroken words, which free text can contain.
+        wordWrap: { width: 280, useAdvancedWrap: true },
       })
       .setOrigin(0.5, 1);
     label.y = -TAIL - PADDING_Y;

@@ -6,7 +6,8 @@ This repo is the **frontend only**. The room server will be a separate Go servic
 ```bash
 npm install
 npm run dev        # http://localhost:5173 (uses the local mock room)
-npm test           # Vitest
+npm test           # unit + component tests (Vitest)
+npm run test:e2e   # browser journeys (Playwright, starts its own dev server)
 npm run build      # typecheck + production build
 ```
 
@@ -72,17 +73,24 @@ JSON objects discriminated by `type` (see `src/services/protocol.ts`).
 | --- | --- | --- |
 | client → server | `join` | `nickname`, `appearance { fur, face, hat }` |
 | client → server | `move` | `target { x, y }` (world pixels, 1920×1080 room) |
-| client → server | `chat` | `messageId` (never free text) |
+| client → server | `chat` | `messageId` (a predefined message) |
+| client → server | `say` | `text` (typed chat, max 80 characters) |
+| client → server | `emote` | `emoteId` (one of the 12 beaver emotes) |
 | server → client | `welcome` | `selfId`, `players[]` (`id`, `nickname`, `appearance`, `position`) |
 | server → client | `player_joined` | `player` |
 | server → client | `player_left` | `playerId` |
 | server → client | `player_moved` | `playerId`, `target` |
 | server → client | `chat` | `playerId`, `messageId` (also echoed to the sender) |
+| server → client | `say` | `playerId`, `text` (also echoed to the sender) |
+| server → client | `emote` | `playerId`, `emoteId` (also echoed to the sender) |
 
 Notes for the server:
 
-- **Validate IDs.** Check `messageId` against the 12 IDs in `src/features/chat/messages.ts`, and check
-  appearance against the IDs in `src/features/character/appearance.ts`.
+- **Validate IDs.** Check `messageId` against `src/features/chat/messages.ts`, `emoteId` against
+  `src/features/chat/emotes.ts`, and appearance against `src/features/character/appearance.ts`.
+- **Typed chat needs moderation.** Apply the rules in `src/features/chat/freeText.ts` (strip control
+  characters, collapse whitespace, 1–80 characters), plus a word filter and per-player rate limiting.
+  The client already waits 800 ms between sends, but a modified client can skip that.
 - **Nickname rules.** 2–16 characters: letters, numbers, spaces, `-` and `_`.
 - **Malformed events.** The client already drops any server event that fails validation.
 

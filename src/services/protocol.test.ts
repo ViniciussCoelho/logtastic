@@ -32,4 +32,16 @@ describe('parseServerEvent', () => {
     expect(parseServerEvent('welcome')).toBeNull();
     expect(parseServerEvent(null)).toBeNull();
   });
+
+  it('accepts typed chat only within the text rules, normalized', () => {
+    expect(parseServerEvent({ type: 'say', playerId: 'p1', text: '  oi   gente ' })).toEqual({ type: 'say', playerId: 'p1', text: 'oi gente' });
+    expect(parseServerEvent({ type: 'say', playerId: 'p1', text: '   ' })).toBeNull();
+    expect(parseServerEvent({ type: 'say', playerId: 'p1', text: 'x'.repeat(81) })).toBeNull();
+    expect(parseServerEvent({ type: 'say', playerId: 'p1', text: 42 })).toBeNull();
+  });
+
+  it('accepts only known emote IDs', () => {
+    expect(parseServerEvent({ type: 'emote', playerId: 'p1', emoteId: 'party' })).toEqual({ type: 'emote', playerId: 'p1', emoteId: 'party' });
+    expect(parseServerEvent({ type: 'emote', playerId: 'p1', emoteId: '<img src=x>' })).toBeNull();
+  });
 });

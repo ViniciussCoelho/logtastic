@@ -1,3 +1,5 @@
+import { EMOTE_IDS, isEmoteId } from '../../features/chat/emotes';
+import { validateChatText } from '../../features/chat/freeText';
 import { CHAT_MESSAGE_IDS, isChatMessageId, type ChatMessageId } from '../../features/chat/messages';
 import { DAM_LAYOUT } from '../../game/damLayout';
 import { randomWalkablePoint } from '../../game/movement';
@@ -9,6 +11,7 @@ const LATENCY_MS = 60;
 const VISITOR_ARRIVES_MS = 12_000;
 const VISITOR_LEAVES_MS = 80_000;
 const GREETING_IDS: readonly ChatMessageId[] = ['greetings.hello', 'greetings.welcome', 'greetings.nice-to-meet-you'];
+const GREETING_WORDS = /\b(hi|hello|hey|oi|ol[aá])\b/i;
 
 interface MockOptions {
   random?: () => number;
@@ -37,11 +40,14 @@ export function createMockRoomConnection({ random = Math.random }: MockOptions =
 
   function botActivity() {
     const bot = pick([...bots.values()]);
-    if (random() < 0.6) {
+    const roll = random();
+    if (roll < 0.55) {
       bot.position = randomWalkablePoint(DAM_LAYOUT, random);
       emit({ type: 'player_moved', playerId: bot.id, target: bot.position });
-    } else {
+    } else if (roll < 0.8) {
       emit({ type: 'chat', playerId: bot.id, messageId: pick(CHAT_MESSAGE_IDS) });
+    } else {
+      emit({ type: 'emote', playerId: bot.id, emoteId: pick(EMOTE_IDS) });
     }
     later(2500 + random() * 3500, botActivity);
   }
@@ -62,11 +68,12 @@ export function createMockRoomConnection({ random = Math.random }: MockOptions =
     });
   }
 
-  /** Bots are friendly: greet them and someone greets you back. */
-  function replyTo(messageId: ChatMessageId) {
-    if (!GREETING_IDS.includes(messageId)) return;
+  /** Bots are friendly: greet them (by message, typing or waving) and someone greets you back. */
+  function greetBack() {
     const bot = pick([...bots.values()]);
-    later(1000 + random() * 1200, () => emit({ type: 'chat', playerId: bot.id, messageId: pick(GREETING_IDS) }));
+    later(1000 + random() * 1200, () =>
+      emit(random() < 0.5 ? { type: 'chat', playerId: bot.id, messageId: pick(GREETING_IDS) } : { type: 'emote', playerId: bot.id, emoteId: 'wave' }),
+    );
   }
 
   function handle(event: ClientEvent) {
@@ -86,7 +93,20 @@ export function createMockRoomConnection({ random = Math.random }: MockOptions =
         // Mirrors server-side validation: unknown IDs are dropped, never relayed.
         if (!self || !isChatMessageId(event.messageId)) return;
         emit({ type: 'chat', playerId: self.id, messageId: event.messageId });
-        replyTo(event.messageId);
+        if (GREETING_IDS.includes(event.messageId)) greetBack();
+        return;
+      case 'say': {
+        // Same rules the Go server must enforce; real moderation also belongs there.
+        const text = validateChatText(event.text);
+        if (!self || !text.valid) return;
+        emit({ type: 'say', playerId: self.id, text: text.text });
+        if (GREETING_WORDS.test(text.text)) greetBack();
+        return;
+      }
+      case 'emote':
+        if (!self || !isEmoteId(event.emoteId)) return;
+        emit({ type: 'emote', playerId: self.id, emoteId: event.emoteId });
+        if (event.emoteId === 'wave') greetBack();
         return;
     }
   }

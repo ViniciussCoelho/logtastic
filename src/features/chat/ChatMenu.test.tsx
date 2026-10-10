@@ -9,7 +9,7 @@ describe('ChatMenu', () => {
     const user = userEvent.setup();
     render(<ChatMenu onSend={onSend} />);
 
-    await user.click(screen.getByRole('button', { name: 'Chat' }));
+    await user.click(screen.getByRole('button', { name: 'Quick messages' }));
     await user.click(screen.getByRole('tab', { name: 'Social' }));
     await user.click(screen.getByRole('button', { name: 'Nice hat!' }));
 
@@ -22,7 +22,7 @@ describe('ChatMenu', () => {
     const user = userEvent.setup();
     render(<ChatMenu onSend={onSend} />);
 
-    await user.click(screen.getByRole('button', { name: 'Chat' }));
+    await user.click(screen.getByRole('button', { name: 'Quick messages' }));
     expect(screen.getByRole('tab', { name: 'Greetings' })).toHaveAttribute('aria-selected', 'true');
     expect(screen.getByRole('button', { name: 'Hello!' })).toBeInTheDocument();
 

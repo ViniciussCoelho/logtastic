@@ -3,9 +3,11 @@ import type { AvatarAppearance } from '../../features/character/appearance';
 import type { Direction, WalkStep } from '../../features/character/avatar/pose';
 import type { RoomPlayer } from '../../services/protocol';
 import type { Vec2 } from '../../types/geometry';
-import { AVATAR_TEXTURE_SCALE, bodyTextureKey, hatTextureKey } from '../avatarTextures';
+import type { EmoteId } from '../../features/chat/emotes';
+import { AVATAR_TEXTURE_SCALE, bodyTextureKey, emoteTextureKey, hatTextureKey } from '../avatarTextures';
 import type { RoomLayout } from '../damLayout';
 import { facingFor, stepTowards } from '../movement';
+import { EmoteBubble } from './EmoteBubble';
 import { SpeechBubble } from './SpeechBubble';
 
 const DISPLAY_SCALE = 1.2;
@@ -16,6 +18,9 @@ const STEP_MS = 115;
 const WALK_CYCLE: readonly WalkStep[] = [1, 0, 2, 0];
 const BLINK_MS = 140;
 
+/** What a beaver's balloon currently shows. */
+export type BubbleContent = { kind: 'text'; text: string } | { kind: 'emote'; emoteId: EmoteId };
+
 /** A beaver in the room: avatar layers, name tag and speech bubble moving as one. */
 export class Beaver extends Phaser.GameObjects.Container {
   readonly playerId: string;
@@ -24,7 +29,9 @@ export class Beaver extends Phaser.GameObjects.Container {
   private readonly hatSprite: Phaser.GameObjects.Image | null;
   private readonly nameTag: Phaser.GameObjects.Container;
   private readonly bubbleY: number;
-  private bubble: SpeechBubble | null = null;
+  /** One balloon at a time: a new message or emote replaces the current one. */
+  private bubble: Phaser.GameObjects.Container | null = null;
+  private bubbleShown: BubbleContent | null = null;
 
   private direction: Direction = 'front';
   private target: Vec2 | null = null;
@@ -64,11 +71,27 @@ export class Beaver extends Phaser.GameObjects.Container {
   }
 
   say(text: string): void {
+    this.showBubble({ kind: 'text', text }, (onGone) => new SpeechBubble(this.scene, this.bubbleY, text, onGone));
+  }
+
+  emote(emoteId: EmoteId): void {
+    const key = emoteTextureKey(this.appearance.fur, emoteId);
+    this.showBubble({ kind: 'emote', emoteId }, (onGone) => new EmoteBubble(this.scene, this.bubbleY, key, onGone));
+  }
+
+  get bubbleContent(): BubbleContent | null {
+    return this.bubbleShown;
+  }
+
+  private showBubble(content: BubbleContent, create: (onGone: () => void) => Phaser.GameObjects.Container): void {
     this.bubble?.destroy();
-    const bubble = new SpeechBubble(this.scene, this.bubbleY, text, () => {
-      if (this.bubble === bubble) this.bubble = null;
+    const bubble = create(() => {
+      if (this.bubble !== bubble) return;
+      this.bubble = null;
+      this.bubbleShown = null;
     });
     this.bubble = bubble;
+    this.bubbleShown = content;
     this.add(bubble);
   }
 

@@ -54,6 +54,22 @@ describe('mock room connection', () => {
     expect(chats).toEqual([{ type: 'chat', playerId: selfId, messageId: 'reactions.awesome' }]);
   });
 
+  it('relays typed chat and emotes under the same rules as the real server', () => {
+    const { room, events } = joinRoom();
+    const selfId = events[0]?.type === 'welcome' ? events[0].selfId : '';
+
+    room.send({ type: 'say', text: '  bora   construir? ' });
+    room.send({ type: 'say', text: 'x'.repeat(200) });
+    room.send({ type: 'emote', emoteId: 'cool' });
+    vi.advanceTimersByTime(100);
+
+    const mine = events.filter((e) => 'playerId' in e && e.playerId === selfId);
+    expect(mine).toEqual([
+      { type: 'say', playerId: selfId, text: 'bora construir?' },
+      { type: 'emote', playerId: selfId, emoteId: 'cool' },
+    ]);
+  });
+
   it('keeps simulated beavers moving to walkable spots and chatting', () => {
     const { events } = joinRoom();
     vi.advanceTimersByTime(60_000);

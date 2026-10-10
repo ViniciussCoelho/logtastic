@@ -1,11 +1,17 @@
 import { useEffect, useRef, useState } from 'react';
 import { createDamGame, type DamGameHandle } from '../../game/createDamGame';
-import type { RoomConnection } from '../../services/protocol';
+import type { ClientEvent, RoomConnection } from '../../services/protocol';
 import { createRoomConnection } from '../../services/roomConnection';
 import type { PlayerProfile } from '../../types/player';
+import { applyChatLogEvent, EMPTY_CHAT_LOG } from '../chat/chatLog';
+import type { EmoteId } from '../chat/emotes';
 import type { ChatMessageId } from '../chat/messages';
+import { createThrottle } from '../chat/throttle';
 import { Hud } from './Hud';
-import { applyRosterEvent } from './roster';
+import { applyRosterEvent, type Roster } from './roster';
+
+/** Minimum gap between anything the player says, so nobody can flood the room. */
+const CHAT_INTERVAL_MS = 800;
 
 interface DamRoomProps {
   player: PlayerProfile;
@@ -18,7 +24,10 @@ export function DamRoom({ player, onLeave }: DamRoomProps) {
   const connection = useRef<RoomConnection | null>(null);
   const game = useRef<DamGameHandle | null>(null);
   const [ready, setReady] = useState(false);
-  const [roster, setRoster] = useState<ReadonlySet<string>>(new Set());
+  const [roster, setRoster] = useState<Roster>(new Map());
+  const [chatLog, setChatLog] = useState(EMPTY_CHAT_LOG);
+  const [selfId, setSelfId] = useState<string | null>(null);
+  const chatThrottle = useRef(createThrottle(CHAT_INTERVAL_MS));
   const [namesVisible, setNamesVisible] = useState(true);
   const [filmLook, setFilmLook] = useState(true);
   const [leaving, setLeaving] = useState(false);
@@ -32,7 +41,15 @@ export function DamRoom({ player, onLeave }: DamRoomProps) {
     stage.current.appendChild(mount);
 
     const room = createRoomConnection();
-    const stopRoster = room.subscribe((event) => setRoster((ids) => applyRosterEvent(ids, event)));
+    // Roster and chat log are folded together so each line is named by who was here at that moment.
+    let current: Roster = new Map();
+    const stopRoster = room.subscribe((event) => {
+      if (event.type === 'welcome') setSelfId(event.selfId);
+      current = applyRosterEvent(current, event);
+      const snapshot = current;
+      setRoster(snapshot);
+      setChatLog((log) => applyChatLogEvent(log, event, snapshot));
+    });
     const dam = createDamGame(mount, {
       connection: room,
       player,
@@ -57,7 +74,14 @@ export function DamRoom({ player, onLeave }: DamRoomProps) {
     game.current?.setNamesVisible(visible);
   };
 
-  const sendChat = (messageId: ChatMessageId) => connection.current?.send({ type: 'chat', messageId });
+  const sendChat = (event: ClientEvent): boolean => {
+    if (!connection.current || !chatThrottle.current()) return false;
+    connection.current.send(event);
+    return true;
+  };
+  const sendPreset = (messageId: ChatMessageId) => sendChat({ type: 'chat', messageId });
+  const sendText = (text: string) => sendChat({ type: 'say', text });
+  const sendEmote = (emoteId: EmoteId) => sendChat({ type: 'emote', emoteId });
 
   // Classic cartoon exit: the iris closes, then we leave.
   const leave = () => setLeaving(true);
@@ -80,7 +104,11 @@ export function DamRoom({ player, onLeave }: DamRoomProps) {
           onNamesVisibleChange={changeNamesVisible}
           filmLook={filmLook}
           onFilmLookChange={setFilmLook}
-          onSendChat={sendChat}
+          chatEntries={chatLog.entries}
+          selfId={selfId}
+          onSendPreset={sendPreset}
+          onSendText={sendText}
+          onSendEmote={sendEmote}
           onLeave={leave}
         />
       ) : (

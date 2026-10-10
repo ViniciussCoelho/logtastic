@@ -3,6 +3,8 @@ import { getFurColor, type AvatarAppearance, type FaceId, type FurColorId, type 
 import { renderBodyLayer } from '../features/character/avatar/beaverBody';
 import { renderHatLayer } from '../features/character/avatar/hats';
 import { DIRECTIONS, type Direction, type WalkStep } from '../features/character/avatar/pose';
+import { renderEmote } from '../features/chat/emoteArt';
+import { EMOTE_IDS, type EmoteId } from '../features/chat/emotes';
 import { addSvgTexture } from './svgTexture';
 
 /** Avatar textures are rasterized at 2x and drawn at half size. */
@@ -12,6 +14,8 @@ const STEPS: readonly WalkStep[] = [0, 1, 2];
 
 export const bodyTextureKey = (fur: FurColorId, face: FaceId, direction: Direction, step: WalkStep, blink: boolean): string =>
   `beaver:${fur}:${face}:${direction}:${step}${blink ? ':blink' : ''}`;
+
+export const emoteTextureKey = (fur: FurColorId, emote: EmoteId): string => `emote:${fur}:${emote}`;
 
 export const hatTextureKey = (hat: HatId, direction: Direction, step: WalkStep): string =>
   `hat:${hat}:${direction}:${step}`;
@@ -26,7 +30,11 @@ export class AvatarTextures {
   constructor(private readonly scene: Phaser.Scene) {}
 
   ensure(appearance: AvatarAppearance): Promise<void> {
-    return Promise.all([this.ensureBody(appearance.fur, appearance.face), this.ensureHat(appearance.hat)]).then(() => undefined);
+    return Promise.all([
+      this.ensureBody(appearance.fur, appearance.face),
+      this.ensureHat(appearance.hat),
+      this.ensureEmotes(appearance.fur),
+    ]).then(() => undefined);
   }
 
   private once(key: string, build: () => Promise<unknown>): Promise<void> {
@@ -49,6 +57,16 @@ export class AvatarTextures {
         frames.map((pose) =>
           addSvgTexture(this.scene, bodyTextureKey(fur, face, pose.direction, pose.step, pose.blink), renderBodyLayer(palette, face, pose), AVATAR_TEXTURE_SCALE),
         ),
+      );
+    });
+  }
+
+  /** Emotes are drawn in the sender's fur, so each fur gets its own set. */
+  private ensureEmotes(fur: FurColorId): Promise<void> {
+    return this.once(`emotes:${fur}`, () => {
+      const palette = getFurColor(fur).palette;
+      return Promise.all(
+        EMOTE_IDS.map((id) => addSvgTexture(this.scene, emoteTextureKey(fur, id), renderEmote(id, palette), AVATAR_TEXTURE_SCALE)),
       );
     });
   }

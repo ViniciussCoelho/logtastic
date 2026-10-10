@@ -11,6 +11,7 @@ import { Beaver } from '../entities/Beaver';
 import { clampToWalkable } from '../movement';
 import { addSvgTexture } from '../svgTexture';
 import { addAmbience, addLanternGlow } from './ambience';
+import { installDamDebug } from './damDebug';
 
 export interface DamSceneOptions {
   connection: RoomConnection;
@@ -21,6 +22,7 @@ export interface DamSceneOptions {
 }
 
 const PROP_TEXTURE_SCALE = 1.5;
+
 /** Lantern glass sits this far above the post's base. */
 const LANTERN_GLASS_OFFSET = -153;
 
@@ -40,6 +42,7 @@ export class DamScene extends Phaser.Scene {
   /** Room events are applied strictly in order, even when spawning waits on textures. */
   private eventQueue: Promise<void> = Promise.resolve();
   private unsubscribe: () => void = () => {};
+  private uninstallDebug: () => void = () => {};
 
   constructor() {
     super(DamScene.KEY);
@@ -54,6 +57,9 @@ export class DamScene extends Phaser.Scene {
     this.alive = true;
     this.events.once(Phaser.Scenes.Events.SHUTDOWN, this.tearDown, this);
     this.events.once(Phaser.Scenes.Events.DESTROY, this.tearDown, this);
+    if (import.meta.env.DEV) {
+      this.uninstallDebug = installDamDebug({ selfId: () => this.selfId, beaver: (id) => this.beavers.get(id) });
+    }
     void this.setUp();
   }
 
@@ -154,6 +160,12 @@ export class DamScene extends Phaser.Scene {
       case 'chat':
         this.beavers.get(event.playerId)?.say(getChatMessageText(event.messageId));
         return;
+      case 'say':
+        this.beavers.get(event.playerId)?.say(event.text);
+        return;
+      case 'emote':
+        this.beavers.get(event.playerId)?.emote(event.emoteId);
+        return;
     }
   }
 
@@ -200,6 +212,7 @@ export class DamScene extends Phaser.Scene {
   private tearDown(): void {
     if (!this.alive) return;
     this.alive = false;
+    this.uninstallDebug();
     this.unsubscribe();
     this.input.off(Phaser.Input.Events.POINTER_DOWN, this.handleClick, this);
     this.beavers.clear();

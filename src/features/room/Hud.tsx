@@ -1,7 +1,9 @@
 import { Logo } from '../../components/Logo';
 import { IDLE_POSE } from '../character/avatar/pose';
 import { BeaverAvatar } from '../character/components/BeaverAvatar';
-import { ChatMenu } from '../chat/ChatMenu';
+import { ChatBar } from '../chat/ChatBar';
+import type { ChatLogEntry } from '../chat/chatLog';
+import type { EmoteId } from '../chat/emotes';
 import type { ChatMessageId } from '../chat/messages';
 import type { PlayerProfile } from '../../types/player';
 import { SettingsMenu } from './SettingsMenu';
@@ -13,12 +15,16 @@ interface HudProps {
   onNamesVisibleChange: (visible: boolean) => void;
   filmLook: boolean;
   onFilmLookChange: (enabled: boolean) => void;
-  onSendChat: (messageId: ChatMessageId) => void;
+  chatEntries: readonly ChatLogEntry[];
+  selfId: string | null;
+  onSendPreset: (messageId: ChatMessageId) => void;
+  onSendText: (text: string) => boolean;
+  onSendEmote: (emoteId: EmoteId) => void;
   onLeave: () => void;
 }
 
 /** Kept to the corners and bottom edge so the room stays the star. Only the controls catch clicks. */
-export function Hud({ player, playerCount, onSendChat, onLeave, ...settings }: HudProps) {
+export function Hud({ player, playerCount, chatEntries, selfId, onSendPreset, onSendText, onSendEmote, onLeave, ...settings }: HudProps) {
   return (
     <div className="pointer-events-none absolute inset-0 flex flex-col justify-between p-3 sm:p-5">
       <div className="flex items-start justify-between gap-3">
@@ -46,7 +52,14 @@ export function Hud({ player, playerCount, onSendChat, onLeave, ...settings }: H
         </div>
       </div>
       <div className="pointer-events-auto self-center">
-        <ChatMenu onSend={onSendChat} />
+        <ChatBar
+          fur={player.appearance.fur}
+          entries={chatEntries}
+          selfId={selfId}
+          onSendPreset={onSendPreset}
+          onSendText={onSendText}
+          onSendEmote={onSendEmote}
+        />
       </div>
     </div>
   );

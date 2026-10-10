@@ -2,11 +2,14 @@
  * Wire contract between the frontend and the Go room server.
  * Every event is a JSON object discriminated by `type`.
  *
- * The client only sends intents: join, a move target and a chat message *ID*.
- * The server owns the roster and broadcasts what happens, including echoing the
- * sender's own chat back so every client renders bubbles from the same event.
+ * The client only sends intents: join, a move target, a predefined chat message ID,
+ * free text (`say`) or an emote ID. The server owns the roster and broadcasts what happens,
+ * including echoing the sender's own chat back so every client renders bubbles from the
+ * same event. Free text must be validated and moderated server-side (see freeText.ts).
  */
 import { isAvatarAppearance, type AvatarAppearance } from '../features/character/appearance';
+import { isEmoteId, type EmoteId } from '../features/chat/emotes';
+import { validateChatText } from '../features/chat/freeText';
 import { isChatMessageId, type ChatMessageId } from '../features/chat/messages';
 import type { Vec2 } from '../types/geometry';
 
@@ -20,14 +23,18 @@ export interface RoomPlayer {
 export type ClientEvent =
   | { type: 'join'; nickname: string; appearance: AvatarAppearance }
   | { type: 'move'; target: Vec2 }
-  | { type: 'chat'; messageId: ChatMessageId };
+  | { type: 'chat'; messageId: ChatMessageId }
+  | { type: 'say'; text: string }
+  | { type: 'emote'; emoteId: EmoteId };
 
 export type ServerEvent =
   | { type: 'welcome'; selfId: string; players: RoomPlayer[] }
   | { type: 'player_joined'; player: RoomPlayer }
   | { type: 'player_left'; playerId: string }
   | { type: 'player_moved'; playerId: string; target: Vec2 }
-  | { type: 'chat'; playerId: string; messageId: ChatMessageId };
+  | { type: 'chat'; playerId: string; messageId: ChatMessageId }
+  | { type: 'say'; playerId: string; text: string }
+  | { type: 'emote'; playerId: string; emoteId: EmoteId };
 
 export interface RoomConnection {
   send(event: ClientEvent): void;
@@ -72,6 +79,14 @@ export function parseServerEvent(raw: unknown): ServerEvent | null {
     case 'chat':
       return isString(raw.playerId) && isChatMessageId(raw.messageId)
         ? { type: 'chat', playerId: raw.playerId, messageId: raw.messageId }
+        : null;
+    case 'say': {
+      const text = typeof raw.text === 'string' ? validateChatText(raw.text) : null;
+      return isString(raw.playerId) && text?.valid ? { type: 'say', playerId: raw.playerId, text: text.text } : null;
+    }
+    case 'emote':
+      return isString(raw.playerId) && isEmoteId(raw.emoteId)
+        ? { type: 'emote', playerId: raw.playerId, emoteId: raw.emoteId }
         : null;
     default:
       return null;
