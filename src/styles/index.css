@@ -1,0 +1,101 @@
+@import 'tailwindcss';
+
+/* Look: a 1930s rubber-hose cartoon (inked characters, iris transitions, film grain)
+   living in a bright, clean, toy-like social world. */
+@theme {
+  --color-ink: #1f140e;
+  --color-cream: #fff8ea;
+  --color-pine-950: #14261f;
+  --color-pine-900: #1c3529;
+  --color-pine-700: #2f5a43;
+  --color-moss-500: #6f9a4a;
+  --color-bark-900: #3b2416;
+  --color-bark-700: #5e3a22;
+  --color-bark-500: #8a5a36;
+  --color-bark-300: #c58f5c;
+  --color-birch-50: #fff8ea;
+  --color-birch-100: #f7ead0;
+  --color-birch-200: #ecd9b4;
+  --color-lantern-400: #f6b544;
+  --color-lantern-500: #e89b23;
+  --color-river-400: #5fb4b0;
+  --color-berry-500: #c4473a;
+
+  --font-display: 'Fredoka', 'Nunito', ui-rounded, system-ui, sans-serif;
+  --font-body: 'Nunito', ui-rounded, system-ui, sans-serif;
+
+  --animate-breathe: breathe 3.2s ease-in-out infinite;
+  --animate-hop: hop 0.42s cubic-bezier(0.3, 1.6, 0.5, 1);
+  --animate-iris-in: iris-in 0.9s cubic-bezier(0.6, 0, 0.4, 1) both;
+  --animate-iris-out: iris-out 0.7s cubic-bezier(0.6, 0, 0.4, 1) both;
+
+  @keyframes breathe {
+    0%, 100% { transform: scale(1, 1); }
+    50% { transform: scale(1.012, 0.985); }
+  }
+  @keyframes hop {
+    0% { transform: translateY(0); }
+    40% { transform: translateY(-14px) scale(0.97, 1.04); }
+    100% { transform: translateY(0); }
+  }
+  @keyframes iris-in {
+    from { clip-path: circle(0% at 50% 55%); }
+    to { clip-path: circle(75% at 50% 55%); }
+  }
+  @keyframes iris-out {
+    from { clip-path: circle(75% at 50% 55%); }
+    to { clip-path: circle(0% at 50% 55%); }
+  }
+}
+
+@layer base {
+  html, body, #root { height: 100%; }
+  body {
+    @apply bg-pine-950 font-body text-bark-900 antialiased;
+  }
+  :focus-visible {
+    outline: 3px solid var(--color-lantern-400);
+    outline-offset: 3px;
+  }
+}
+
+/* Plank texture for the signboard: subtle grain lines over warm wood. */
+.wood-panel {
+  background-color: var(--color-bark-500);
+  background-image:
+    repeating-linear-gradient(180deg, transparent 0 46px, rgb(59 36 22 / 0.35) 46px 48px),
+    repeating-linear-gradient(176deg, rgb(255 255 255 / 0.04) 0 3px, transparent 3px 11px),
+    linear-gradient(180deg, #96633d, #7c4f2e);
+}
+
+@media (prefers-reduced-motion: reduce) {
+  *, *::before, *::after {
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.01ms !important;
+  }
+}
+
+@keyframes river {
+  from { transform: translateX(0); }
+  to { transform: translateX(60px); }
+}
+@keyframes drift {
+  from { transform: translateX(0); }
+  to { transform: translateX(calc(100vw + 30rem)); }
+}
+
+/* Old cartoon print: a soft vignette plus flickering grain. Toggled from settings. */
+.film-overlay {
+  background:
+    radial-gradient(ellipse at center, transparent 55%, rgb(31 20 14 / 0.38) 100%),
+    url("data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' width='160' height='160'><filter id='n'><feTurbulence type='fractalNoise' baseFrequency='0.9' numOctaves='2' stitchTiles='stitch'/></filter><rect width='100%' height='100%' filter='url(%23n)' opacity='0.5'/></svg>");
+  mix-blend-mode: multiply;
+  opacity: 0.55;
+  animation: film-flicker 0.24s steps(2) infinite;
+}
+@keyframes film-flicker {
+  0% { background-position: 0 0, 0 0; opacity: 0.55; }
+  50% { background-position: 0 0, 37px 61px; opacity: 0.48; }
+  100% { background-position: 0 0, -23px 17px; opacity: 0.55; }
+}
