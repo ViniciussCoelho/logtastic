@@ -31,3 +31,9 @@ export function getEmote(id: EmoteId): Emote {
   if (!emote) throw new Error(`Unknown emote: ${id}`);
   return emote;
 }
+
+/** Keys 1–9 fire the first nine emotes, in catalogue order. */
+export function emoteForHotkey(key: string): EmoteId | null {
+  const index = Number(key) - 1;
+  return /^[1-9]$/.test(key) ? (EMOTE_IDS[index] ?? null) : null;
+}

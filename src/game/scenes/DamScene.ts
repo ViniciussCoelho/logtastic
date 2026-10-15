@@ -6,9 +6,9 @@ import type { Vec2 } from '../../types/geometry';
 import { renderDamBackdrop } from '../art/damBackdrop';
 import { lantern, logBench, signpost, SIGN_TEXT_OFFSET, stumpTable, type PropArt } from '../art/props';
 import { AvatarTextures } from '../avatarTextures';
-import { DAM_LAYOUT, DAM_PROPS } from '../damLayout';
+import { DAM_LAYOUT, DAM_PROPS, WORLD_HEIGHT, WORLD_WIDTH } from '../damLayout';
 import { Beaver } from '../entities/Beaver';
-import { clampToWalkable } from '../movement';
+import { clampToWalkable, isWalkable } from '../movement';
 import { addSvgTexture } from '../svgTexture';
 import { addAmbience, addLanternGlow } from './ambience';
 import { installDamDebug } from './damDebug';
@@ -99,6 +99,8 @@ export class DamScene extends Phaser.Scene {
     if (!this.alive) return;
 
     this.add.image(0, 0, 'dam-backdrop').setOrigin(0).setDepth(-10);
+    // When the view is narrower than the room (portrait phones), the camera follows the player.
+    this.cameras.main.setBounds(0, 0, WORLD_WIDTH, WORLD_HEIGHT);
     addAmbience(this);
 
     const place = (key: string, at: Vec2) => {
@@ -137,13 +139,21 @@ export class DamScene extends Phaser.Scene {
 
   private async handle(event: ServerEvent): Promise<void> {
     switch (event.type) {
-      case 'welcome':
+      case 'welcome': {
         this.selfId = event.selfId;
         await Promise.all(event.players.map((player) => this.avatars.ensure(player.appearance)));
         if (!this.alive) return;
-        event.players.forEach((player) => this.spawn(player));
+        // The server starts new players at (0, 0), off the deck. Start at the spawn instead,
+        // and say so once, so everyone else sees us in the same place.
+        const self = event.players.find((player) => player.id === event.selfId);
+        const offDeck = self !== undefined && !isWalkable(self.position, DAM_LAYOUT);
+        event.players.forEach((player) =>
+          this.spawn(offDeck && player === self ? { ...player, position: DAM_LAYOUT.spawn } : player),
+        );
+        if (offDeck) this.options.connection.send({ type: 'move', target: DAM_LAYOUT.spawn });
         this.options.onReady();
         return;
+      }
       case 'player_joined':
         await this.avatars.ensure(event.player.appearance);
         if (this.alive) this.spawn(event.player, true);
@@ -175,6 +185,7 @@ export class DamScene extends Phaser.Scene {
     const beaver = new Beaver(this, { ...player, position }, DAM_LAYOUT, player.id === this.selfId);
     beaver.setNameVisible(this.namesVisible);
     this.beavers.set(player.id, beaver);
+    if (player.id === this.selfId) this.cameras.main.startFollow(beaver, true, 0.08, 0);
     if (announce) {
       beaver.setScale(0.2);
       this.tweens.add({ targets: beaver, scale: 1, duration: 380, ease: 'Back.Out' });

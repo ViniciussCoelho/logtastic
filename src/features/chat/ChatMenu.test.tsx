@@ -2,10 +2,11 @@ import { render, screen } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { describe, expect, it, vi } from 'vitest';
 import { ChatMenu } from './ChatMenu';
+import type { ChatMessageId } from './messages';
 
 describe('ChatMenu', () => {
   it('sends the ID of the picked message and closes', async () => {
-    const onSend = vi.fn();
+    const onSend = vi.fn<(messageId: ChatMessageId) => void>();
     const user = userEvent.setup();
     render(<ChatMenu onSend={onSend} />);
 
@@ -18,7 +19,7 @@ describe('ChatMenu', () => {
   });
 
   it('starts on greetings and closes on Escape without sending', async () => {
-    const onSend = vi.fn();
+    const onSend = vi.fn<(messageId: ChatMessageId) => void>();
     const user = userEvent.setup();
     render(<ChatMenu onSend={onSend} />);
 

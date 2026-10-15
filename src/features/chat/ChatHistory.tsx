@@ -11,9 +11,10 @@ interface ChatHistoryProps {
 export function ChatHistory({ entries, selfId }: ChatHistoryProps) {
   const list = useRef<HTMLOListElement>(null);
 
-  // Scroll only the list itself, never the page around it.
+  // Scroll only the list itself, never the page around it. Runs whenever a line arrives.
   useEffect(() => {
     if (list.current) list.current.scrollTop = list.current.scrollHeight;
+    // oxlint-disable-next-line react/exhaustive-effect-dependencies -- new entries are the trigger
   }, [entries]);
 
   return (

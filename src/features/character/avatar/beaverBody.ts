@@ -38,12 +38,20 @@ const BELLY_SHADE = 'M76 56 C84 62 86 74 82 84 C80 92 84 106 80 118 C76 126 70 1
 const CHIN_SHADE = 'M45 86 Q60 97 75 86 Q60 92 45 86 Z';
 const SIDE_BEAN = 'M62 22 C84 22 92 40 92 62 C92 78 92 88 95 104 C98 122 90 138 64 138 C40 138 30 124 32 106 C34 92 34 84 32 76 C30 52 40 22 62 22 Z';
 
+/**
+ * Which way the light comes from in a drawing's own coordinates: -1 = from the left, 1 = from
+ * the right. Side views are drawn facing left and mirrored to face right, so the right-facing
+ * drawing is lit from its right; after the mirror, the light lands on the upper left again.
+ */
+type LightFrom = -1 | 1;
+
 const shade = (d: string): string => el('path', { d, fill: SHADE, ...NO_STROKE });
 const highlight = (d: string, width = 3): string =>
   el('path', { d, fill: 'none', stroke: LIT, 'stroke-width': width, 'stroke-linecap': 'round' });
 
 /** The flat, scaly paddle tail, shaded underneath and catching light along the top. */
-function tail(cx: number, cy: number, rx: number, ry: number, rotation: number): string {
+function tail(cx: number, cy: number, rx: number, ry: number, rotation: number, light: LightFrom = -1): string {
+  const l = -light;
   const scales: string[] = [];
   for (let i = -2; i <= 2; i++) {
     const x = (i * rx) / 3.2;
@@ -52,9 +60,9 @@ function tail(cx: number, cy: number, rx: number, ry: number, rotation: number):
   scales.push(el('line', { x1: -rx * 0.72, y1: 0, x2: rx * 0.72, y2: 0 }));
   return group({ transform: `translate(${cx} ${cy}) rotate(${rotation})` }, [
     el('ellipse', { cx: 0, cy: 0, rx, ry, fill: TAIL, ...NO_STROKE }),
-    el('ellipse', { cx: rx * 0.12, cy: ry * 0.3, rx: rx * 0.86, ry: ry * 0.68, fill: SHADE, ...NO_STROKE }),
+    el('ellipse', { cx: l * rx * 0.12, cy: ry * 0.3, rx: rx * 0.86, ry: ry * 0.68, fill: SHADE, ...NO_STROKE }),
     group({ stroke: TAIL_SCALES, 'stroke-width': 1.4, opacity: 0.8 }, scales),
-    highlight(`M${-rx * 0.62} ${-ry * 0.32} Q0 ${-ry * 0.78} ${rx * 0.42} ${-ry * 0.56}`, 2.4),
+    highlight(`M${-l * rx * 0.62} ${-ry * 0.32} Q0 ${-ry * 0.78} ${l * rx * 0.42} ${-ry * 0.56}`, 2.4),
     el('ellipse', { cx: 0, cy: 0, rx, ry, fill: 'none', 'stroke-width': PART }),
   ]);
 }
@@ -90,20 +98,24 @@ function cheekTuft(x: number, y: number, side: number, fill: string): string {
 }
 
 /** Stubby nub foot; a lit foot catches a highlight, a shaded one sits in shadow. */
-function foot(cx: number, cy: number, palette: FurPalette, lit: boolean): string {
+function foot(cx: number, cy: number, palette: FurPalette, lit: boolean, light: LightFrom = -1): string {
+  const l = -light;
   return [
     el('ellipse', { cx, cy, rx: 11, ry: 6.5, fill: palette.shade, 'stroke-width': PART }),
-    lit ? highlight(`M${cx - 7} ${cy - 2} Q${cx - 2} ${cy - 5} ${cx + 3} ${cy - 4}`, 2.2) : el('ellipse', { cx, cy: cy + 1.5, rx: 9, ry: 4.5, fill: SHADE, ...NO_STROKE }),
+    lit
+      ? highlight(`M${cx - l * 7} ${cy - 2} Q${cx - l * 2} ${cy - 5} ${cx + l * 3} ${cy - 4}`, 2.2)
+      : el('ellipse', { cx, cy: cy + 1.5, rx: 9, ry: 4.5, fill: SHADE, ...NO_STROKE }),
   ].join('');
 }
 
 /** Stubby nub arm hanging from the side, pivoting at the shoulder. */
-function arm(cx: number, cy: number, angle: number, palette: FurPalette, lit: boolean): string {
+function arm(cx: number, cy: number, angle: number, palette: FurPalette, lit: boolean, light: LightFrom = -1): string {
+  const l = -light;
   return group({ transform: `rotate(${angle} ${cx} ${cy - 9})` }, [
     el('ellipse', { cx, cy, rx: 7, ry: 13, fill: palette.base, 'stroke-width': PART }),
     lit
-      ? highlight(`M${cx - 3.5} ${cy - 8} Q${cx - 5.5} ${cy} ${cx - 3.5} ${cy + 7}`, 2.2)
-      : el('ellipse', { cx: cx + 1.5, cy, rx: 5, ry: 11, fill: SHADE, ...NO_STROKE }),
+      ? highlight(`M${cx - l * 3.5} ${cy - 8} Q${cx - l * 5.5} ${cy} ${cx - l * 3.5} ${cy + 7}`, 2.2)
+      : el('ellipse', { cx: cx + l * 1.5, cy, rx: 5, ry: 11, fill: SHADE, ...NO_STROKE }),
   ]);
 }
 
@@ -170,37 +182,63 @@ function backView(palette: FurPalette, pose: AvatarPose): string {
   return [frontFeet(pose.step, palette), upper].join('');
 }
 
-/** Drawn facing left. */
-function sideView(palette: FurPalette, face: FaceId, pose: AvatarPose): string {
+/** Cream patch on the side view: covers the head outline where the snout joins, then runs down the belly. */
+const SIDE_PATCH = 'M30 62 C40 54 54 58 56 70 C58 84 52 92 54 104 C56 120 50 132 40 132 C34 128 32 116 34 104 C36 90 34 80 30 76 Z';
+
+/**
+ * Light and shadow for the side view. Facing left, the light hits the face and belly and
+ * the back is in shadow; facing right, the back is lit and the face and belly turn away.
+ */
+function sideLighting(palette: FurPalette, light: LightFrom) {
+  if (light === -1) {
+    return {
+      backCheek: palette.shade,
+      flank: el('path', { d: 'M88 74 C90 92 95 112 88 127 C84 133 77 136 70 137 C83 124 87 100 84 80 Z', fill: palette.shade, ...NO_STROKE }),
+      patch: shade('M48 86 C54 96 52 110 54 122 C52 128 48 131 44 132 C50 118 50 100 48 86 Z'),
+      snout: '',
+      highlights: [highlight('M38 44 Q44 29 60 25', 3.2), highlight('M21 62 Q27 57 35 58', 2.2), highlight('M38 100 Q36 112 40 122', 2.6)].join(''),
+    };
+  }
+  return {
+    backCheek: palette.base,
+    flank: shade('M34 84 C30 100 32 120 44 134 C52 137 60 138 66 138 C50 130 42 114 42 98 C42 90 38 86 34 84 Z'),
+    patch: shade('M30 76 C34 80 36 90 34 104 C32 116 34 128 40 132 C44 126 42 116 42 104 C42 92 40 82 30 76 Z'),
+    snout: shade('M17 68 C17 76 24 81.5 33 81.5 C26 79 21 75 20 68 Z'),
+    highlights: [highlight('M64 25 Q82 28 88 46', 3.2), highlight('M90 62 Q93 74 92 86', 2.6), highlight('M93 100 Q96 112 92 124', 2.6)].join(''),
+  };
+}
+
+/** Drawn facing left; `light` says where the light falls in this drawing (see LightFrom). */
+function sideView(palette: FurPalette, face: FaceId, pose: AvatarPose, light: LightFrom): string {
   const stride = pose.step === 1 ? 6 : pose.step === 2 ? -6 : 0;
   const swing = stride * 2.2;
+  const lighting = sideLighting(palette, light);
+  const frontLit = light === -1;
   const upper = group({ transform: `translate(0 ${strideBob(pose.step)})` }, [
     el('circle', { cx: 78, cy: 30, r: 8, fill: palette.base, 'stroke-width': PART }),
     el('circle', { cx: 78, cy: 30, r: 3.6, fill: palette.shade, ...NO_STROKE }),
-    cheekTuft(84, 68, 1, palette.shade),
+    cheekTuft(84, 68, 1, lighting.backCheek),
     el('path', { d: SIDE_BEAN, fill: palette.base, 'stroke-width': SILHOUETTE }),
-    el('path', { d: 'M88 74 C90 92 95 112 88 127 C84 133 77 136 70 137 C83 124 87 100 84 80 Z', fill: palette.shade, ...NO_STROKE }),
+    lighting.flank,
     el('ellipse', { cx: 31, cy: 70, rx: 15, ry: 11.5, fill: palette.light, 'stroke-width': PART }),
-    // Cream patch: covers the head outline where the snout joins, then runs down the belly.
-    el('path', { d: 'M30 62 C40 54 54 58 56 70 C58 84 52 92 54 104 C56 120 50 132 40 132 C34 128 32 116 34 104 C36 90 34 80 30 76 Z', fill: palette.light, ...NO_STROKE }),
-    shade('M48 86 C54 96 52 110 54 122 C52 128 48 131 44 132 C50 118 50 100 48 86 Z'),
+    el('path', { d: SIDE_PATCH, fill: palette.light, ...NO_STROKE }),
+    lighting.patch,
+    lighting.snout,
     shade('M24 76 Q34 82 44 76 Q34 79 24 76 Z'),
-    highlight('M38 44 Q44 29 60 25', 3.2),
-    highlight('M21 62 Q27 57 35 58', 2.2),
-    highlight('M38 100 Q36 112 40 122', 2.6),
+    lighting.highlights,
     el('path', { d: 'M59 30 Q62 23 65 30', fill: 'none', 'stroke-width': 2.2 }),
     renderEyes(face, [{ x: 43, y: 59, side: -1 }], pose.blink, palette),
     blush(50, 72),
     el('rect', { x: 23, y: 74, width: 4.5, height: 6.5, rx: 1, fill: TEETH, 'stroke-width': 1.6 }),
     el('path', { d: 'M19 73 Q24 76 30 73', fill: 'none', 'stroke-width': 2.2 }),
     nose(18, 66),
-    arm(60, 101, swing, palette, true),
+    arm(60, 101, swing, palette, true, light),
   ]);
   return [
     el('ellipse', { cx: 62, cy: 142, rx: 30, ry: 6, fill: SHADOW, ...NO_STROKE }),
-    tail(98, 126, 22, 7.5, 12),
-    foot(70 - stride, 139 - (stride > 0 ? 4 : 0), palette, false),
-    foot(52 + stride, 139 - (stride < 0 ? 4 : 0), palette, true),
+    tail(98, 126, 22, 7.5, 12, light),
+    foot(70 - stride, 139 - (stride > 0 ? 4 : 0), palette, !frontLit, light),
+    foot(52 + stride, 139 - (stride < 0 ? 4 : 0), palette, frontLit, light),
     upper,
   ].join('');
 }
@@ -215,7 +253,8 @@ export function renderBodyLayer(palette: FurPalette, face: FaceId, pose: AvatarP
   };
 
   if (pose.direction === 'left' || pose.direction === 'right') {
-    return svgDocument(handDrawn(group(ink, [orient(pose.direction, sideView(palette, face, pose))])), viewBox);
+    const light: LightFrom = pose.direction === 'right' ? 1 : -1;
+    return svgDocument(handDrawn(group(ink, [orient(pose.direction, sideView(palette, face, pose, light))])), viewBox);
   }
 
   const shadow = el('ellipse', { cx: 60, cy: 142, rx: 34, ry: 6.5, fill: SHADOW, stroke: 'none' });

@@ -107,3 +107,24 @@ test.describe('in The Dam', () => {
     await expect.poll(() => selfBubble(page)).toEqual({ kind: 'emote', emoteId: 'party' });
   });
 });
+
+test('the beaver and room settings are remembered after a reload', async ({ page }) => {
+  await page.goto('/');
+  await page.getByLabel('Nickname').fill('Pebble');
+  await pickOption(page, 'Cream');
+  await pickOption(page, 'Wink');
+  await pickOption(page, 'Beanie');
+  await page.getByRole('button', { name: 'Enter The Dam' }).click();
+  await expect(page.getByText(/\d+ beavers here/)).toBeVisible({ timeout: 15_000 });
+  await page.getByRole('button', { name: 'Settings' }).click();
+  await page.getByRole('switch', { name: 'Old film look' }).uncheck({ force: true });
+
+  await page.reload();
+  await expect(page.getByLabel('Nickname')).toHaveValue('Pebble');
+  await expect(page.getByRole('img', { name: /^Your beaver:/ })).toHaveAccessibleName(/cream fur, wink face, beanie/i);
+
+  await page.getByRole('button', { name: 'Enter The Dam' }).click();
+  await expect(page.getByText(/\d+ beavers here/)).toBeVisible({ timeout: 15_000 });
+  await page.getByRole('button', { name: 'Settings' }).click();
+  await expect(page.getByRole('switch', { name: 'Old film look' })).not.toBeChecked();
+});

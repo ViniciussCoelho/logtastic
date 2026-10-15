@@ -23,12 +23,13 @@ export function ChatMenu({ onSend }: ChatMenuProps) {
   };
 
   return (
-    <div ref={root} className="relative flex flex-col items-center">
+    // On phones the panel anchors to the whole chat bar (its button sits too close to the edge).
+    <div ref={root} className="flex flex-col items-center sm:relative">
       {open && (
         <div
           role="dialog"
           aria-label="Quick messages"
-          className="absolute bottom-full left-1/2 mb-4 w-[min(26rem,calc(100vw-2rem))] -translate-x-1/2 rounded-3xl border-4 border-ink bg-cream p-3 shadow-[0_6px_0_var(--color-ink)]"
+          className="absolute bottom-full left-0 mb-4 w-[min(26rem,calc(100vw-2rem))] rounded-3xl sm:left-1/2 sm:-translate-x-1/2 border-4 border-ink bg-cream p-3 shadow-[0_6px_0_var(--color-ink)]"
         >
           <div role="tablist" aria-label="Message categories" className="mb-3 grid grid-cols-3 gap-1.5">
             {CHAT_CATEGORIES.map((c) => (
@@ -58,12 +59,12 @@ export function ChatMenu({ onSend }: ChatMenuProps) {
           </div>
           <span
             aria-hidden="true"
-            className="absolute -bottom-3 left-1/2 h-5 w-5 -translate-x-1/2 rotate-45 border-r-4 border-b-4 border-ink bg-cream"
+            className="absolute -bottom-3 left-1/2 hidden h-5 w-5 sm:block -translate-x-1/2 rotate-45 border-r-4 border-b-4 border-ink bg-cream"
           />
         </div>
       )}
-      <HudButton aria-label="Quick messages" aria-expanded={open} onClick={() => setOpen((v) => !v)} className="h-14 w-14">
-        <svg viewBox="0 0 48 48" className="h-8 w-8" aria-hidden="true">
+      <HudButton aria-label="Quick messages" aria-expanded={open} onClick={() => setOpen((v) => !v)} className="size-11 roomy:size-14">
+        <svg viewBox="0 0 48 48" className="size-6 roomy:size-8" aria-hidden="true">
           <path
             d="M8 10 h32 a6 6 0 0 1 6 6 v14 a6 6 0 0 1 -6 6 h-18 l-9 8 v-8 h-5 a6 6 0 0 1 -6 -6 v-14 a6 6 0 0 1 6 -6 z"
             fill="#fff"

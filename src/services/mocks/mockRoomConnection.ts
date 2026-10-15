@@ -112,6 +112,7 @@ export function createMockRoomConnection({ random = Math.random }: MockOptions =
   }
 
   return {
+    supportsEmotes: true,
     send: (event) => {
       if (!closed) handle(event);
     },
@@ -119,6 +120,8 @@ export function createMockRoomConnection({ random = Math.random }: MockOptions =
       listeners.add(listener);
       return () => listeners.delete(listener);
     },
+    // The mock never drops.
+    onDisconnect: () => () => {},
     close: () => {
       closed = true;
       timers.forEach(clearTimeout);

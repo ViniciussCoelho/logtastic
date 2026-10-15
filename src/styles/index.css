@@ -1,5 +1,8 @@
 @import 'tailwindcss';
 
+/* Wide and tall enough for full-size room controls; short landscape phones stay compact. */
+@custom-variant roomy (@media (min-width: 40rem) and (min-height: 32rem));
+
 /* Look: a 1930s rubber-hose cartoon (inked characters, iris transitions, film grain)
    living in a bright, clean, toy-like social world. */
 @theme {

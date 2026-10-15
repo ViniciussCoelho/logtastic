@@ -41,7 +41,7 @@ export function NicknameField({ value, onChange, error, inputRef }: NicknameFiel
         aria-live="polite"
         className={`min-h-5 text-sm font-bold ${error ? 'text-[#ffd2c4]' : 'text-birch-200'}`}
       >
-        {error ?? 'Just for this visit — no account needed.'}
+        {error ?? 'Remembered on this device — no account needed.'}
       </p>
     </div>
   );

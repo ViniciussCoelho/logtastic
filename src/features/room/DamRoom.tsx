@@ -1,12 +1,14 @@
 import { useEffect, useRef, useState } from 'react';
 import { createDamGame, type DamGameHandle } from '../../game/createDamGame';
-import type { ClientEvent, RoomConnection } from '../../services/protocol';
+import type { ClientEvent, DisconnectReason, RoomConnection } from '../../services/protocol';
 import { createRoomConnection } from '../../services/roomConnection';
 import type { PlayerProfile } from '../../types/player';
+import { loadRoomSettings, saveRoomSettings, type RoomSettings } from '../../app/localSave';
 import { applyChatLogEvent, EMPTY_CHAT_LOG } from '../chat/chatLog';
 import type { EmoteId } from '../chat/emotes';
 import type { ChatMessageId } from '../chat/messages';
 import { createThrottle } from '../chat/throttle';
+import { ConnectionNotice } from './ConnectionNotice';
 import { Hud } from './Hud';
 import { applyRosterEvent, type Roster } from './roster';
 
@@ -28,10 +30,11 @@ export function DamRoom({ player, onLeave }: DamRoomProps) {
   const [chatLog, setChatLog] = useState(EMPTY_CHAT_LOG);
   const [selfId, setSelfId] = useState<string | null>(null);
   const chatThrottle = useRef(createThrottle(CHAT_INTERVAL_MS));
-  const [namesVisible, setNamesVisible] = useState(true);
-  const [filmLook, setFilmLook] = useState(true);
+  const [settings, setSettings] = useState(loadRoomSettings);
   const [leaving, setLeaving] = useState(false);
-  const namesVisibleAtStart = useRef(namesVisible);
+  const [disconnected, setDisconnected] = useState<DisconnectReason | null>(null);
+  const [emotesEnabled, setEmotesEnabled] = useState(true);
+  const namesVisibleAtStart = useRef(settings.namesVisible);
 
   useEffect(() => {
     if (!stage.current) return;
@@ -41,6 +44,8 @@ export function DamRoom({ player, onLeave }: DamRoomProps) {
     stage.current.appendChild(mount);
 
     const room = createRoomConnection();
+    setEmotesEnabled(room.supportsEmotes);
+    const stopDisconnect = room.onDisconnect(setDisconnected);
     // Roster and chat log are folded together so each line is named by who was here at that moment.
     let current: Roster = new Map();
     const stopRoster = room.subscribe((event) => {
@@ -61,6 +66,7 @@ export function DamRoom({ player, onLeave }: DamRoomProps) {
 
     return () => {
       stopRoster();
+      stopDisconnect();
       dam.destroy();
       room.close();
       mount.remove();
@@ -69,9 +75,11 @@ export function DamRoom({ player, onLeave }: DamRoomProps) {
     };
   }, [player]);
 
-  const changeNamesVisible = (visible: boolean) => {
-    setNamesVisible(visible);
-    game.current?.setNamesVisible(visible);
+  const changeSettings = (change: Partial<RoomSettings>) => {
+    const next = { ...settings, ...change };
+    setSettings(next);
+    saveRoomSettings(next);
+    if (change.namesVisible !== undefined) game.current?.setNamesVisible(change.namesVisible);
   };
 
   const sendChat = (event: ClientEvent): boolean => {
@@ -95,27 +103,29 @@ export function DamRoom({ player, onLeave }: DamRoomProps) {
           if (leaving && event.target === event.currentTarget) onLeave();
         }}
       />
-      {filmLook && <div aria-hidden="true" className="film-overlay pointer-events-none absolute inset-0" />}
+      {settings.filmLook && <div aria-hidden="true" className="film-overlay pointer-events-none absolute inset-0" />}
       {ready ? (
         <Hud
           player={player}
           playerCount={roster.size}
-          namesVisible={namesVisible}
-          onNamesVisibleChange={changeNamesVisible}
-          filmLook={filmLook}
-          onFilmLookChange={setFilmLook}
+          namesVisible={settings.namesVisible}
+          onNamesVisibleChange={(namesVisible) => changeSettings({ namesVisible })}
+          filmLook={settings.filmLook}
+          onFilmLookChange={(filmLook) => changeSettings({ filmLook })}
           chatEntries={chatLog.entries}
           selfId={selfId}
           onSendPreset={sendPreset}
           onSendText={sendText}
           onSendEmote={sendEmote}
+          emotesEnabled={emotesEnabled}
           onLeave={leave}
         />
       ) : (
         <div className="absolute inset-0 grid place-items-center bg-ink" role="status">
-          <p className="animate-breathe font-display text-3xl font-semibold text-cream">Building the dam…</p>
+          {!disconnected && <p className="animate-breathe font-display text-3xl font-semibold text-cream">Building the dam…</p>}
         </div>
       )}
+      {disconnected && <ConnectionNotice reason={disconnected} onBack={onLeave} />}
     </main>
   );
 }

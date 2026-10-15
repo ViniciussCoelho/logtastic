@@ -2,9 +2,10 @@ import { render, screen } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { describe, expect, it, vi } from 'vitest';
 import { CharacterCreator } from './CharacterCreator';
+import type { PlayerProfile } from '../../../types/player';
 
 function setup() {
-  const onEnter = vi.fn();
+  const onEnter = vi.fn<(profile: PlayerProfile) => void>();
   render(<CharacterCreator onEnter={onEnter} />);
   return { onEnter, user: userEvent.setup() };
 }
@@ -68,7 +69,7 @@ describe('CharacterCreator', () => {
   it('restores the beaver from the last visit', () => {
     render(
       <CharacterCreator
-        onEnter={vi.fn()}
+        onEnter={vi.fn<(profile: PlayerProfile) => void>()}
         initialProfile={{ nickname: 'Pip', appearance: { fur: 'cream', face: 'happy', hat: 'beanie' } }}
       />,
     );

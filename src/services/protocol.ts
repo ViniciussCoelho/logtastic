@@ -1,16 +1,16 @@
 /**
- * Wire contract between the frontend and the Go room server.
- * Every event is a JSON object discriminated by `type`.
+ * The room events the app speaks, whichever room it is connected to. The scene and HUD only
+ * see these; each connection translates its own transport into them (the Go server's wire
+ * format lives in serverWire.ts).
  *
  * The client only sends intents: join, a move target, a predefined chat message ID,
- * free text (`say`) or an emote ID. The server owns the roster and broadcasts what happens,
- * including echoing the sender's own chat back so every client renders bubbles from the
- * same event. Free text must be validated and moderated server-side (see freeText.ts).
+ * free text (`say`) or an emote ID. The room owns the roster and reports what happens,
+ * including echoing the sender's own chat back, so every client renders bubbles from the
+ * same event and nothing is shown twice.
  */
-import { isAvatarAppearance, type AvatarAppearance } from '../features/character/appearance';
-import { isEmoteId, type EmoteId } from '../features/chat/emotes';
-import { validateChatText } from '../features/chat/freeText';
-import { isChatMessageId, type ChatMessageId } from '../features/chat/messages';
+import type { AvatarAppearance } from '../features/character/appearance';
+import type { EmoteId } from '../features/chat/emotes';
+import type { ChatMessageId } from '../features/chat/messages';
 import type { Vec2 } from '../types/geometry';
 
 export interface RoomPlayer {
@@ -36,59 +36,16 @@ export type ServerEvent =
   | { type: 'say'; playerId: string; text: string }
   | { type: 'emote'; playerId: string; emoteId: EmoteId };
 
+/** `unreachable`: never got into the room. `lost`: was in the room, then the connection dropped. */
+export type DisconnectReason = 'unreachable' | 'lost';
+
 export interface RoomConnection {
+  /** Whether the room relays beaver emotes (the Go server doesn't yet). */
+  readonly supportsEmotes: boolean;
   send(event: ClientEvent): void;
   /** Returns an unsubscribe function. */
   subscribe(listener: (event: ServerEvent) => void): () => void;
+  /** Called at most once, when the room can't be reached or the connection drops. Not called after close(). */
+  onDisconnect(listener: (reason: DisconnectReason) => void): () => void;
   close(): void;
-}
-
-type Json = Record<string, unknown>;
-
-const isObject = (value: unknown): value is Json => typeof value === 'object' && value !== null;
-const isString = (value: unknown): value is string => typeof value === 'string' && value.length > 0;
-const isVec2 = (value: unknown): value is Vec2 =>
-  isObject(value) && Number.isFinite(value.x) && Number.isFinite(value.y);
-
-function isRoomPlayer(value: unknown): value is RoomPlayer {
-  return (
-    isObject(value) &&
-    isString(value.id) &&
-    isString(value.nickname) &&
-    isAvatarAppearance(value.appearance) &&
-    isVec2(value.position)
-  );
-}
-
-/** Validates an untrusted server payload; returns null for anything malformed. */
-export function parseServerEvent(raw: unknown): ServerEvent | null {
-  if (!isObject(raw)) return null;
-  switch (raw.type) {
-    case 'welcome':
-      return isString(raw.selfId) && Array.isArray(raw.players) && raw.players.every(isRoomPlayer)
-        ? { type: 'welcome', selfId: raw.selfId, players: raw.players }
-        : null;
-    case 'player_joined':
-      return isRoomPlayer(raw.player) ? { type: 'player_joined', player: raw.player } : null;
-    case 'player_left':
-      return isString(raw.playerId) ? { type: 'player_left', playerId: raw.playerId } : null;
-    case 'player_moved':
-      return isString(raw.playerId) && isVec2(raw.target)
-        ? { type: 'player_moved', playerId: raw.playerId, target: { x: raw.target.x, y: raw.target.y } }
-        : null;
-    case 'chat':
-      return isString(raw.playerId) && isChatMessageId(raw.messageId)
-        ? { type: 'chat', playerId: raw.playerId, messageId: raw.messageId }
-        : null;
-    case 'say': {
-      const text = typeof raw.text === 'string' ? validateChatText(raw.text) : null;
-      return isString(raw.playerId) && text?.valid ? { type: 'say', playerId: raw.playerId, text: text.text } : null;
-    }
-    case 'emote':
-      return isString(raw.playerId) && isEmoteId(raw.emoteId)
-        ? { type: 'emote', playerId: raw.playerId, emoteId: raw.emoteId }
-        : null;
-    default:
-      return null;
-  }
 }

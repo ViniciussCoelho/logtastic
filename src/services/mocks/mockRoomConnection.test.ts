@@ -74,9 +74,9 @@ describe('mock room connection', () => {
     const { events } = joinRoom();
     vi.advanceTimersByTime(60_000);
 
-    const moves = events.filter((e) => e.type === 'player_moved');
-    expect(moves.length).toBeGreaterThan(0);
-    moves.forEach((e) => e.type === 'player_moved' && expect(isWalkable(e.target, DAM_LAYOUT)).toBe(true));
+    const targets = events.flatMap((e) => (e.type === 'player_moved' ? [e.target] : []));
+    expect(targets.length).toBeGreaterThan(0);
+    expect(targets.filter((target) => !isWalkable(target, DAM_LAYOUT))).toEqual([]);
     expect(events.some((e) => e.type === 'chat')).toBe(true);
     expect(events.some((e) => e.type === 'player_joined')).toBe(true);
   });

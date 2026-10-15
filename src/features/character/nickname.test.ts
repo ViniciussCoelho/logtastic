@@ -22,8 +22,6 @@ describe('validateNickname', () => {
     ['<script>', /only letters/],
     ['dam🦫', /only letters/],
   ])('rejects %j', (input, message) => {
-    const result = validateNickname(input);
-    expect(result.valid).toBe(false);
-    if (!result.valid) expect(result.error).toMatch(message);
+    expect(validateNickname(input)).toEqual({ valid: false, error: expect.stringMatching(message) });
   });
 });

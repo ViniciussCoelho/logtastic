@@ -55,7 +55,7 @@ function Toggle({ id, label, checked, onChange }: { id: string; label: string; c
   return (
     <label htmlFor={id} className="flex cursor-pointer items-center justify-between gap-3 font-body text-base font-extrabold text-ink">
       {label}
-      <input id={id} type="checkbox" role="switch" checked={checked} onChange={(e) => onChange(e.target.checked)} className="peer sr-only" />
+      <input id={id} type="checkbox" role="switch" checked={checked} aria-checked={checked} onChange={(e) => onChange(e.target.checked)} className="peer sr-only" />
       <span
         aria-hidden="true"
         className="relative h-7 w-12 shrink-0 rounded-full border-[3px] border-ink bg-white transition peer-checked:bg-moss-500 peer-focus-visible:outline-3 peer-focus-visible:outline-offset-2 peer-focus-visible:outline-lantern-400 after:absolute after:top-0.5 after:left-0.5 after:h-4 after:w-4 after:rounded-full after:border-2 after:border-ink after:bg-white after:transition peer-checked:after:translate-x-5"
